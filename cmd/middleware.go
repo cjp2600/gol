@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	routing "github.com/qiangxue/fasthttp-routing"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 	"runtime"
 )
@@ -16,7 +17,7 @@ func ErrorConverter(err ErrorSlug, c *routing.Context) (string, int, ErrorSlug) 
 	return ErrText(ErrSlugInternalError), fasthttp.StatusInternalServerError, err
 }
 
-func PanicHandler() routing.Handler {
+func PanicHandler(logger zerolog.Logger) routing.Handler {
 	return func(c *routing.Context) (err error) {
 		defer func() {
 			if e := recover(); e != nil {
@@ -24,7 +25,9 @@ func PanicHandler() routing.Handler {
 				if err, ok = e.(error); !ok {
 					err = fmt.Errorf("%v", e)
 					if err != nil {
-						// log.Printf("[PANIC RECOVER] - recovered from panic: %v", getCallStack(4))
+						if e := logger.Debug(); e.Enabled() {
+							e.Str("type", "panic").Msgf("%s, %v", err.Error(), getCallStack(4))
+						}
 					}
 				}
 			}

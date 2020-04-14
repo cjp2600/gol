@@ -9,7 +9,7 @@ import (
 type Rest struct {
 	handler *Handler
 	logger  zerolog.Logger
-	port string
+	port    string
 }
 
 func NewRest(logger zerolog.Logger, port string) *Rest {
@@ -22,7 +22,7 @@ func NewRest(logger zerolog.Logger, port string) *Rest {
 func (r *Rest) CreateRoute() *routing.Router {
 	router := routing.New()
 	router.Use(r.handler.ErrorHandler())
-	router.Use(PanicHandler())
+	router.Use(PanicHandler(r.logger))
 	return router
 }
 
@@ -48,9 +48,6 @@ func (r *Rest) Run() error {
 	serv := fasthttp.Server{
 		Handler:            h,
 		MaxRequestBodySize: 100 * 1024 * 1024 * 1024,
-	}
-	if e := r.logger.Debug(); e.Enabled() {
-		e.Msgf("start debug mode")
 	}
 	return serv.ListenAndServe(":" + r.port)
 }

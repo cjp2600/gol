@@ -8,6 +8,7 @@ import (
 )
 
 type ConvertErrorFunc func(*routing.Context, error) error
+
 const ResponseSlug = "RESPONSE"
 
 type Handler struct {
@@ -77,5 +78,6 @@ func (h *Handler) ErrorHandler(errorf ...ConvertErrorFunc) routing.Handler {
 }
 
 func (h *Handler) ExecuteHandler(ctx *routing.Context) error {
+	panic("shit")
 	return ErrSlugEmptyQuery.Error()
 }
