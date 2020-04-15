@@ -9,6 +9,7 @@ import (
 const (
 	ErrSlugInternalError ErrorSlug = "INTERNAL_ERROR"
 	ErrSlugEmptyQuery    ErrorSlug = "EMPTY_QUERY"
+	ErrSlugNotFound      ErrorSlug = "Not Found"
 )
 
 type ErrorSlug string
@@ -22,7 +23,8 @@ type ErrorInfo struct {
 func ErrText(slug ErrorSlug) string {
 	m := make(map[ErrorSlug]string)
 	m[ErrSlugInternalError] = "unknown error"
-	m[ErrSlugEmptyQuery] = "company request has not been sent"
+	m[ErrSlugEmptyQuery] = "request has not been sent"
+	m[ErrSlugNotFound] = "resource not found"
 	if v, ok := m[slug]; ok {
 		return v
 	}
@@ -43,7 +45,6 @@ func ErrToSlug(e error) ErrorSlug {
 
 func ErrList(c *routing.Context) map[ErrorSlug]ErrorInfo {
 	info := make(map[ErrorSlug]ErrorInfo)
-
 	info[ErrSlugInternalError] = ErrorInfo{
 		HttpCode: fasthttp.StatusInternalServerError,
 		Message:  ErrText(ErrSlugInternalError),
@@ -52,6 +53,9 @@ func ErrList(c *routing.Context) map[ErrorSlug]ErrorInfo {
 		HttpCode: fasthttp.StatusInternalServerError,
 		Message:  ErrText(ErrSlugEmptyQuery),
 	}
-
+	info[ErrSlugNotFound] = ErrorInfo{
+		HttpCode: fasthttp.StatusNotFound,
+		Message:  ErrText(ErrSlugNotFound),
+	}
 	return info
 }

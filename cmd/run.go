@@ -32,7 +32,7 @@ var runCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(runCmd)
 	runCmd.Flags().StringP("port", "p", "", "http server port")
-	runCmd.Flags().BoolP("verbose", "v", false, "verbose debug information")
+	runCmd.Flags().BoolP("verbose", "v", false, "verbose output")
 }
 
 func RunCmd(cmd *cobra.Command, args []string) {

@@ -17,17 +17,22 @@ func ErrorConverter(err ErrorSlug, c *routing.Context) (string, int, ErrorSlug) 
 	return ErrText(ErrSlugInternalError), fasthttp.StatusInternalServerError, err
 }
 
+func LoggingHandler(logger zerolog.Logger) routing.Handler {
+	return func(c *routing.Context) (err error) {
+		if e := logger.Debug(); e.Enabled() {
+			e.Str("type", "request").Str("url", c.Request.URI().String()).Msgf("request")
+		}
+		return c.Next()
+	}
+}
+
 func PanicHandler(logger zerolog.Logger) routing.Handler {
 	return func(c *routing.Context) (err error) {
 		defer func() {
 			if e := recover(); e != nil {
-				var ok bool
-				if err, ok = e.(error); !ok {
-					err = fmt.Errorf("%v", e)
-					if err != nil {
-						if e := logger.Debug(); e.Enabled() {
-							e.Str("type", "panic").Msgf("%s, %v", err.Error(), getCallStack(4))
-						}
+				if err, _ := e.(error); err != nil {
+					if e := logger.Debug(); e.Enabled() {
+						e.Str("type", "panic").Msgf("%s, %v", err.Error(), getCallStack(4))
 					}
 				}
 			}

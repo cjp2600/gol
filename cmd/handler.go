@@ -4,7 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	routing "github.com/qiangxue/fasthttp-routing"
+	"github.com/rs/zerolog"
+	"github.com/valyala/fasthttp"
 	"net/http"
+
+	"gopkg.in/workanator/go-floc.v2"
+	"gopkg.in/workanator/go-floc.v2/run"
 )
 
 type ConvertErrorFunc func(*routing.Context, error) error
@@ -12,11 +17,12 @@ type ConvertErrorFunc func(*routing.Context, error) error
 const ResponseSlug = "RESPONSE"
 
 type Handler struct {
-	api *Rest
+	api    *Rest
+	logger zerolog.Logger
 }
 
-func NewHandler(api *Rest) *Handler {
-	return &Handler{api: api}
+func NewHandler(api *Rest, logger zerolog.Logger) *Handler {
+	return &Handler{api: api, logger: logger}
 }
 
 func (h *Handler) JSON(status int, ctx *routing.Context, v interface{}) {
@@ -59,7 +65,7 @@ func (h *Handler) Response(status int, c *routing.Context, data interface{}, cod
 	return nil
 }
 
-func (h *Handler) ErrorHandler(errorf ...ConvertErrorFunc) routing.Handler {
+func (h *Handler) ErrorHandler(logger zerolog.Logger, errorf ...ConvertErrorFunc) routing.Handler {
 	return func(c *routing.Context) error {
 		err := c.Next()
 		if err == nil {
@@ -70,6 +76,9 @@ func (h *Handler) ErrorHandler(errorf ...ConvertErrorFunc) routing.Handler {
 		}
 		if err != nil {
 			mess, status, err := ErrorConverter(ErrToSlug(err), c)
+			if e := logger.Debug(); e.Enabled() {
+				e.Str("type", "error").Int("code", status).Msgf(mess)
+			}
 			_ = h.Response(status, c, nil, err.String(), mess)
 			c.Abort()
 		}
@@ -77,7 +86,49 @@ func (h *Handler) ErrorHandler(errorf ...ConvertErrorFunc) routing.Handler {
 	}
 }
 
-func (h *Handler) ExecuteHandler(ctx *routing.Context) error {
-	panic("shit")
-	return ErrSlugEmptyQuery.Error()
+func (h *Handler) ExecuteHandler(c *routing.Context) error {
+	var jobs map[string]interface{}
+	var req Request
+	var j []floc.Job
+	if err := req.UnmarshalJSON(c.PostBody()); err != nil {
+		return err
+	}
+	ctx := floc.NewContext()
+	jobs = make(map[string]interface{})
+	for _, sequence := range req.Sequence {
+		switch sequence.Type {
+		case Parallel:
+			var pj []floc.Job
+			for _, job := range sequence.Jobs {
+				pj = append(pj, NewRequestTranslator(job, h.logger).FlocExecute())
+			}
+			j = append(j, run.Parallel(pj...))
+		case Sync:
+			var sj []floc.Job
+			for _, job := range sequence.Jobs {
+				sj = append(sj, NewRequestTranslator(job, h.logger).FlocExecute())
+			}
+			j = append(j, sj...)
+		}
+	}
+	flow := run.Sequence(j...)
+	_, _, err := floc.RunWith(ctx, floc.NewControl(ctx), flow)
+	if err != nil {
+		return err
+	}
+	for _, sequence := range req.Sequence {
+		for _, job := range sequence.Jobs {
+			if v, ok := ctx.Value(job.Id).(string); ok {
+				jobs[job.Id] = v
+			}
+		}
+	}
+	return h.Response(fasthttp.StatusOK, c, jobs, "", "")
+}
+
+func (h *Handler) PingHandler(ctx *routing.Context) error {
+	resp := struct {
+		Version string `json:"version"`
+	}{Version: "1.0"}
+	return h.Response(fasthttp.StatusOK, ctx, resp, "PONG", "")
 }
