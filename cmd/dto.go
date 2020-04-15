@@ -27,7 +27,7 @@ func (t SequenceType) String() string {
 type Var struct {
 	Name  string `json:"name"`
 	Type  string `json:"type"`
-	XPath string `json:"xPath"`
+	JPath string `json:"jPath"`
 }
 
 type Job struct {
@@ -57,7 +57,15 @@ func (j *Job) GetHeaders(ctx floc.Context) map[string]string {
 		log.Print(err)
 	}
 	for key, item := range result {
-		resp[key] = item.(string)
+		v := item.(string)
+		resp[key] = v
+
+		if v == "$token" {
+			if v, ok := ctx.Value("token").(string); ok {
+				resp[key] = v
+			}
+		}
+
 	}
 	return resp
 }

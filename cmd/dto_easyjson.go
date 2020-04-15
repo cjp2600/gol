@@ -40,8 +40,8 @@ func easyjson56de76c1DecodeGithubComCjp2600GolCmd(in *jlexer.Lexer, out *Var) {
 			out.Name = string(in.String())
 		case "type":
 			out.Type = string(in.String())
-		case "xPath":
-			out.XPath = string(in.String())
+		case "jPath":
+			out.JPath = string(in.String())
 		default:
 			in.SkipRecursive()
 		}
@@ -67,9 +67,9 @@ func easyjson56de76c1EncodeGithubComCjp2600GolCmd(out *jwriter.Writer, in Var) {
 		out.String(string(in.Type))
 	}
 	{
-		const prefix string = ",\"xPath\":"
+		const prefix string = ",\"jPath\":"
 		out.RawString(prefix)
-		out.String(string(in.XPath))
+		out.String(string(in.JPath))
 	}
 	out.RawByte('}')
 }

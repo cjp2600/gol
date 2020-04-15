@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/go-resty/resty"
 	"github.com/rs/zerolog"
+	"github.com/yalp/jsonpath"
 	"gopkg.in/workanator/go-floc.v2"
 	"strings"
 )
@@ -19,6 +21,32 @@ func NewRequestTranslator(job Job, logger zerolog.Logger) *RequestTranslator {
 	return &RequestTranslator{Job: job, client: resty.New(), logger: logger}
 }
 
+func (r *RequestTranslator) setType(ctx floc.Context, n, t string, val interface{}) {
+	switch strings.ToLower(t) {
+	case "string":
+		ctx.AddValue(n, val.(string))
+	case "int":
+		ctx.AddValue(n, val.(int))
+	case "int32":
+		ctx.AddValue(n, val.(int32))
+	case "int64":
+		ctx.AddValue(n, val.(int64))
+	}
+}
+
+func (r *RequestTranslator) FindVarByJPath(js string, jPath string) (interface{}, error) {
+	var store interface{}
+	err := json.Unmarshal([]byte(js), &store)
+	if err != nil {
+		return nil, err
+	}
+	val, err := jsonpath.Read(store, jPath)
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
+}
+
 func (r *RequestTranslator) FlocExecute() func(ctx floc.Context, ctrl floc.Control) error {
 	return func(ctx floc.Context, ctrl floc.Control) error {
 		resp, err := r.Execute(ctx)
@@ -26,6 +54,17 @@ func (r *RequestTranslator) FlocExecute() func(ctx floc.Context, ctrl floc.Contr
 			return err
 		}
 		ctx.AddValue(r.Job.Id, resp.String())
+		if r.Job.Var != nil {
+			for _, v := range r.Job.Var {
+				if len(v.JPath) > 0 {
+					val, err := r.FindVarByJPath(resp.String(), v.JPath)
+					if err != nil {
+						return err
+					}
+					r.setType(ctx, v.Name, v.Type, val)
+				}
+			}
+		}
 		return nil
 	}
 }

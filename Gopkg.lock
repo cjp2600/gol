@@ -202,6 +202,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:ac3d942a027d57fbfc5c13791cfaaa4b30729674fea88f2e03190b777c2b674e"
+  name = "github.com/yalp/jsonpath"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "5cc68e5049a040829faef3a44c00ec4332f6dec7"
+
+[[projects]]
+  branch = "master"
   digest = "1:4d02b57b109d7a6a87d9ed6bf8026f32bfb04f86e5bf49e0d81e1c98cf46a965"
   name = "golang.org/x/net"
   packages = [
@@ -286,6 +294,7 @@
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "github.com/valyala/fasthttp",
+    "github.com/yalp/jsonpath",
     "gopkg.in/workanator/go-floc.v2",
     "gopkg.in/workanator/go-floc.v2/run",
   ]

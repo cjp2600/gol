@@ -58,6 +58,10 @@
   version = "20180529.0.0"
 
 [[constraint]]
+  branch = "master"
+  name = "github.com/yalp/jsonpath"
+
+[[constraint]]
   branch = "v2"
   name = "gopkg.in/workanator/go-floc.v2"
 
