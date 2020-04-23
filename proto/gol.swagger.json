@@ -51,7 +51,15 @@
       }
     },
     "golExecuteResponse": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "jobs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
     },
     "golJob": {
       "type": "object",
@@ -66,10 +74,16 @@
           "$ref": "#/definitions/golMethods"
         },
         "body": {
-          "$ref": "#/definitions/protobufAny"
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/protobufAny"
+          }
         },
         "header": {
-          "$ref": "#/definitions/protobufAny"
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/protobufAny"
+          }
         },
         "var": {
           "type": "array",
@@ -95,7 +109,7 @@
         "type": {
           "$ref": "#/definitions/golSequenceType"
         },
-        "Jobs": {
+        "jobs": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/golJob"

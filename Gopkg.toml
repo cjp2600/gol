@@ -38,16 +38,8 @@
   version = "1.2.0"
 
 [[constraint]]
-  name = "github.com/grpc-ecosystem/go-grpc-prometheus"
-  version = "1.2.0"
-
-[[constraint]]
   name = "github.com/grpc-ecosystem/grpc-gateway"
-  version = "1.14.3"
-
-[[constraint]]
-  name = "github.com/mailru/easyjson"
-  version = "0.7.1"
+  version = "1.14.4"
 
 [[constraint]]
   name = "github.com/mitchellh/go-homedir"
@@ -78,16 +70,12 @@
   name = "github.com/yalp/jsonpath"
 
 [[constraint]]
-  name = "gitlab.com/pharmpixel/pharmpixel"
-  version = "202004.22.0"
-
-[[constraint]]
   branch = "master"
   name = "google.golang.org/genproto"
 
 [[constraint]]
   name = "google.golang.org/grpc"
-  version = "1.28.1"
+  version = "1.29.0"
 
 [[constraint]]
   branch = "v2"

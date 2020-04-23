@@ -15,7 +15,7 @@ service Gol {
 }
 
 message ExecuteResponse {
-
+    map<string, string> jobs = 1;
 }
 
 message ExecuteRequest {
@@ -24,7 +24,7 @@ message ExecuteRequest {
 
 message Sequence {
     SequenceType type = 1;
-    repeated Job Jobs = 2;
+    repeated Job jobs = 2;
 }
 
 enum Methods {
@@ -43,8 +43,8 @@ message Job {
     string id = 1;
     string url = 2;
     Methods method = 3;
-    google.protobuf.Any body = 4;
-    google.protobuf.Any header = 5;
+    map<string, google.protobuf.Any> body = 4;
+    map<string, google.protobuf.Any> header = 5;
     repeated Var var = 6;
 }
 

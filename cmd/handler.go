@@ -49,12 +49,11 @@ func (h *Handler) CustomHTTPError(ctx context.Context, _ *runtime.ServeMux, mars
 }
 
 func (h *Handler) Execute(c context.Context, request *pb.ExecuteRequest) (*pb.ExecuteResponse, error) {
-	var response *pb.ExecuteResponse
-	var jobs map[string]interface{}
+	var response pb.ExecuteResponse
 	var j []floc.Job
 
 	ctx := floc.NewContext()
-	jobs = make(map[string]interface{})
+	jobs := make(map[string]string)
 	for _, sequence := range request.Sequence {
 		switch sequence.Type {
 		case pb.SequenceType_parallel:
@@ -83,5 +82,6 @@ func (h *Handler) Execute(c context.Context, request *pb.ExecuteRequest) (*pb.Ex
 			}
 		}
 	}
-	return response, nil
+	response.Jobs = jobs
+	return &response, nil
 }

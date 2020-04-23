@@ -77,11 +77,19 @@ func (r *RequestTranslator) Execute(ctx floc.Context) (*resty.Response, error) {
 	req.EnableTrace()
 
 	if r.Job.Body != nil {
-		req.SetBody(r.Job.Body)
+		ub, err := r.Job.GetUnmarshalBody()
+		if err != nil {
+			return nil, err
+		}
+		req.SetBody(ub)
 	}
-	/*	if r.Job.Header != nil {
-		req.SetHeaders(r.Job.GetHeaders(ctx))
-	}*/
+	if r.Job.Header != nil {
+		ub, err := r.Job.GetUnmarshalHeader()
+		if err != nil {
+			return nil, err
+		}
+		req.SetHeaders(ub)
+	}
 	switch r.Job.Method {
 	case pb.Methods_get:
 		response, err = req.Get(r.Job.GetUrl())

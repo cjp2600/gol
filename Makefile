@@ -1,11 +1,4 @@
 build:
-	protoc -I.  \
-	-I$(GOPATH)/src   \
-	-I$(GOPATH)/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis   \
-	--plugin=protoc-gen-mongo=$(GOPATH)/bin/protoc-gen-bom \
-	--mongo_out="generateCrud=true,gateway:." \
- 	proto/gol.proto
- 	
 	protoc -I. \
 	-I$(GOPATH)/src \
 	-I$(GOPATH)/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
