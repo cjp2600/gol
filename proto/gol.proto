@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+import "github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api/annotations.proto";
+import "google/protobuf/any.proto";
+
+package gol;
+
+service Gol {
+    rpc Execute (ExecuteRequest) returns (ExecuteResponse) {
+        option (google.api.http) = {
+            post: "/api/v1/execute"
+            body: "*"
+         };
+    }
+}
+
+message ExecuteResponse {
+
+}
+
+message ExecuteRequest {
+    repeated Sequence sequence = 1;
+}
+
+message Sequence {
+    SequenceType type = 1;
+    repeated Job Jobs = 2;
+}
+
+enum Methods {
+    post = 0;
+    get = 1;
+    put = 2;
+    patch = 3;
+}
+
+enum SequenceType {
+    parallel = 0;
+    sync = 1;
+}
+
+message Job {
+    string id = 1;
+    string url = 2;
+    Methods method = 3;
+    google.protobuf.Any body = 4;
+    google.protobuf.Any header = 5;
+    repeated Var var = 6;
+}
+
+message Var {
+    string name = 1;
+    string type = 2;
+    string jPath = 3;
+}

@@ -2,108 +2,68 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	routing "github.com/qiangxue/fasthttp-routing"
+	"fmt"
+	pb "github.com/cjp2600/gol/proto"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/zerolog"
-	"github.com/valyala/fasthttp"
-	"net/http"
-
+	"google.golang.org/grpc"
 	"gopkg.in/workanator/go-floc.v2"
 	"gopkg.in/workanator/go-floc.v2/run"
+	"net/http"
 )
 
-type ConvertErrorFunc func(*routing.Context, error) error
-
-const ResponseSlug = "RESPONSE"
-
 type Handler struct {
-	api    *Rest
+	api    *Server
 	logger zerolog.Logger
 }
 
-func NewHandler(api *Rest, logger zerolog.Logger) *Handler {
+func NewHandler(api *Server, logger zerolog.Logger) *Handler {
 	return &Handler{api: api, logger: logger}
 }
 
-func (h *Handler) JSON(status int, ctx *routing.Context, v interface{}) {
+func (h *Handler) CustomHTTPError(ctx context.Context, _ *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, req *http.Request, err error) {
+	w.Header().Set("Content-type", marshaler.ContentType())
+	resp := struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+		Status  int    `json:"status"`
+	}{}
+	message, status, code := ErrorConverter(ErrToSlug(fmt.Errorf(grpc.ErrorDesc(err))))
+	resp.Code = code.String()
+	resp.Message = message
+	resp.Status = status
+
+	h.logger.Error().Msg(fmt.Sprintf("[%s] - %s", resp.Code, resp.Message))
+
 	buf := &bytes.Buffer{}
 	enc := json.NewEncoder(buf)
 	enc.SetEscapeHTML(true)
-	if err := enc.Encode(v); err != nil {
-		ctx.Response.Header.Set("Content-Type", "text/plain; charset=utf-8")
-		ctx.Response.Header.Set("X-Content-Type-Options", "nosniff")
-		ctx.SetStatusCode(http.StatusInternalServerError)
-		ctx.SetBody([]byte(err.Error()))
+	if err := enc.Encode(resp); err != nil {
+		http.Error(w, err.Error(), status)
 		return
 	}
-	ctx.Response.Header.Set("Content-Type", "application/json; charset=utf-8")
-	if status > 0 {
-		ctx.SetStatusCode(status)
-	}
-	ctx.SetBody(buf.Bytes())
+	w.WriteHeader(status)
+	w.Write(buf.Bytes())
 }
 
-func (h *Handler) Response(status int, c *routing.Context, data interface{}, code string, message string) error {
-	if len(code) == 0 {
-		code = ResponseSlug
-	}
-	if data == nil {
-		data = []string{}
-	}
-	resp := struct {
-		Status  int         `json:"status"`
-		Code    string      `json:"code"`
-		Message string      `json:"message"`
-		Data    interface{} `json:"data"`
-	}{}
-	resp.Status = status
-	resp.Data = data
-	resp.Code = code
-	resp.Message = message
-	h.JSON(status, c, resp)
-
-	return nil
-}
-
-func (h *Handler) ErrorHandler(logger zerolog.Logger, errorf ...ConvertErrorFunc) routing.Handler {
-	return func(c *routing.Context) error {
-		err := c.Next()
-		if err == nil {
-			return nil
-		}
-		if len(errorf) > 0 {
-			err = errorf[0](c, err)
-		}
-		if err != nil {
-			mess, status, err := ErrorConverter(ErrToSlug(err), c)
-			if e := logger.Debug(); e.Enabled() {
-				e.Str("type", "error").Int("code", status).Msgf(mess)
-			}
-			_ = h.Response(status, c, nil, err.String(), mess)
-			c.Abort()
-		}
-		return nil
-	}
-}
-
-func (h *Handler) ExecuteHandler(c *routing.Context) error {
+func (h *Handler) Execute(c context.Context, request *pb.ExecuteRequest) (*pb.ExecuteResponse, error) {
+	var response *pb.ExecuteResponse
 	var jobs map[string]interface{}
-	var req Request
 	var j []floc.Job
-	if err := req.UnmarshalJSON(c.PostBody()); err != nil {
-		return err
-	}
+
 	ctx := floc.NewContext()
 	jobs = make(map[string]interface{})
-	for _, sequence := range req.Sequence {
+	for _, sequence := range request.Sequence {
 		switch sequence.Type {
-		case Parallel:
+		case pb.SequenceType_parallel:
 			var pj []floc.Job
 			for _, job := range sequence.Jobs {
 				pj = append(pj, NewRequestTranslator(job, h.logger).FlocExecute())
 			}
 			j = append(j, run.Parallel(pj...))
-		case Sync:
+		case pb.SequenceType_sync:
 			var sj []floc.Job
 			for _, job := range sequence.Jobs {
 				sj = append(sj, NewRequestTranslator(job, h.logger).FlocExecute())
@@ -114,21 +74,14 @@ func (h *Handler) ExecuteHandler(c *routing.Context) error {
 	flow := run.Sequence(j...)
 	_, _, err := floc.RunWith(ctx, floc.NewControl(ctx), flow)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	for _, sequence := range req.Sequence {
+	for _, sequence := range request.Sequence {
 		for _, job := range sequence.Jobs {
 			if v, ok := ctx.Value(job.Id).(string); ok {
 				jobs[job.Id] = v
 			}
 		}
 	}
-	return h.Response(fasthttp.StatusOK, c, jobs, "", "")
-}
-
-func (h *Handler) PingHandler(ctx *routing.Context) error {
-	resp := struct {
-		Version string `json:"version"`
-	}{Version: "1.0"}
-	return h.Response(fasthttp.StatusOK, ctx, resp, "PONG", "")
+	return response, nil
 }

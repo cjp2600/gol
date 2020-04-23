@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	pb "github.com/cjp2600/gol/proto"
 	"github.com/go-resty/resty"
 	"github.com/rs/zerolog"
 	"github.com/yalp/jsonpath"
@@ -11,26 +12,26 @@ import (
 )
 
 type RequestTranslator struct {
-	Job    Job
+	Job    *pb.Job
 	Ctx    context.Context
 	client *resty.Client
 	logger zerolog.Logger
 }
 
-func NewRequestTranslator(job Job, logger zerolog.Logger) *RequestTranslator {
+func NewRequestTranslator(job *pb.Job, logger zerolog.Logger) *RequestTranslator {
 	return &RequestTranslator{Job: job, client: resty.New(), logger: logger}
 }
 
 func (r *RequestTranslator) setType(ctx floc.Context, n, t string, val interface{}) {
 	switch strings.ToLower(t) {
 	case "string":
-		ctx.AddValue(n, val.(string))
+		ctx.AddValue("$"+n, val.(string))
 	case "int":
-		ctx.AddValue(n, val.(int))
+		ctx.AddValue("$"+n, val.(int))
 	case "int32":
-		ctx.AddValue(n, val.(int32))
+		ctx.AddValue("$"+n, val.(int32))
 	case "int64":
-		ctx.AddValue(n, val.(int64))
+		ctx.AddValue("$"+n, val.(int64))
 	}
 }
 
@@ -78,28 +79,26 @@ func (r *RequestTranslator) Execute(ctx floc.Context) (*resty.Response, error) {
 	if r.Job.Body != nil {
 		req.SetBody(r.Job.Body)
 	}
-	if r.Job.Header != nil {
+	/*	if r.Job.Header != nil {
 		req.SetHeaders(r.Job.GetHeaders(ctx))
-	}
-	if r.Job.Method != "" {
-		switch strings.ToLower(r.Job.Method) {
-		case "get":
-			response, err = req.Get(r.Job.GetUrl(ctx))
-		case "post":
-			response, err = req.Post(r.Job.GetUrl(ctx))
-		case "put":
-			response, err = req.Put(r.Job.GetUrl(ctx))
-		case "delete":
-			response, err = req.Delete(r.Job.GetUrl(ctx))
-		}
+	}*/
+	switch r.Job.Method {
+	case pb.Methods_get:
+		response, err = req.Get(r.Job.GetUrl())
+	case pb.Methods_post:
+		response, err = req.Post(r.Job.GetUrl())
+	case pb.Methods_put:
+		response, err = req.Put(r.Job.GetUrl())
+	case pb.Methods_patch:
+		response, err = req.Delete(r.Job.GetUrl())
 	}
 	if err != nil {
 		return nil, err
 	}
 	if e := r.logger.Debug(); e.Enabled() {
 		e.Str("type", "request").
-			Str("method", r.Job.Method).
-			Str("url", r.Job.GetUrl(ctx)).
+			Str("method", r.Job.Method.String()).
+			Str("url", r.Job.GetUrl()).
 			Dur("connTime", req.TraceInfo().ConnTime).
 			Dur("serverTime", req.TraceInfo().ServerTime).
 			Dur("responseTime", req.TraceInfo().ResponseTime).

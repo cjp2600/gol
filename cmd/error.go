@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"errors"
-	routing "github.com/qiangxue/fasthttp-routing"
+	"fmt"
 	"github.com/valyala/fasthttp"
 )
 
@@ -43,7 +43,7 @@ func ErrToSlug(e error) ErrorSlug {
 	return ErrorSlug(e.Error())
 }
 
-func ErrList(c *routing.Context) map[ErrorSlug]ErrorInfo {
+func ErrList() map[ErrorSlug]ErrorInfo {
 	info := make(map[ErrorSlug]ErrorInfo)
 	info[ErrSlugInternalError] = ErrorInfo{
 		HttpCode: fasthttp.StatusInternalServerError,
@@ -58,4 +58,8 @@ func ErrList(c *routing.Context) map[ErrorSlug]ErrorInfo {
 		Message:  ErrText(ErrSlugNotFound),
 	}
 	return info
+}
+
+func InterceptorOptionHandler(p interface{}) error {
+	return errors.New(fmt.Sprintf("%s", p))
 }

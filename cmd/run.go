@@ -16,9 +16,13 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 // runCmd represents the run command
@@ -31,7 +35,8 @@ var runCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(runCmd)
-	runCmd.Flags().StringP("port", "p", "", "http server port")
+	runCmd.Flags().StringP("port", "p", "8081", "http server port")
+	runCmd.Flags().StringP("grpc", "g", "50050", "tcp server port")
 	runCmd.Flags().BoolP("verbose", "v", false, "verbose output")
 }
 
@@ -40,13 +45,27 @@ func RunCmd(cmd *cobra.Command, args []string) {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	port, _ := cmd.Flags().GetString("port")
+	grpcPort, _ := cmd.Flags().GetString("grpc")
 	verbose, _ := cmd.Flags().GetBool("verbose")
 	if verbose {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
-	server := NewRest(logger, port)
-	if err := server.Run(); err != nil {
-		logger.Err(err)
+	server := NewServer(logger, port, grpcPort)
+	go server.RunGRPC()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+		<-stop
+		logger.Info().Msg("Stop gol")
+
+		cancel()
+		os.Exit(1)
+	}()
+
+	if err := server.RunHttp(ctx); err != nil {
+		log.Fatal().Msg(err.Error())
 	}
 }
