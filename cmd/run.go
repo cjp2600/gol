@@ -35,8 +35,8 @@ var runCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(runCmd)
-	runCmd.Flags().StringP("port", "p", "8081", "http server port")
-	runCmd.Flags().StringP("grpc", "g", "50050", "tcp server port")
+	runCmd.Flags().StringP("http-port", "p", "8012", "http server port")
+	runCmd.Flags().StringP("grpc-port", "g", "6012", "tcp server port")
 	runCmd.Flags().BoolP("verbose", "v", false, "verbose output")
 }
 
@@ -44,28 +44,36 @@ func RunCmd(cmd *cobra.Command, args []string) {
 	logger := zerolog.New(os.Stdout).With().Timestamp().Str("service", "gol").Logger()
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
-	port, _ := cmd.Flags().GetString("port")
-	grpcPort, _ := cmd.Flags().GetString("grpc")
-	verbose, _ := cmd.Flags().GetBool("verbose")
+	httpPort, err := cmd.Flags().GetString("http-port")
+	grpcPort, err := cmd.Flags().GetString("grpc-port")
+	verbose, err := cmd.Flags().GetBool("verbose")
+
+	if err != nil {
+		logger.Info().Msgf("flag parse error %s", err)
+	}
+
 	if verbose {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
+	server := NewServer(logger, httpPort, grpcPort)
 
-	server := NewServer(logger, port, grpcPort)
-	go server.RunGRPC()
+	go func() {
+		err := server.RunGRPC()
+		log.Fatal().Msgf("error %s", err)
+	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 		<-stop
-		logger.Info().Msg("Stop gol")
+		logger.Info().Msg("Stop gol application")
 
 		cancel()
 		os.Exit(1)
 	}()
 
 	if err := server.RunHttp(ctx); err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal().Msgf("error %s", err)
 	}
 }

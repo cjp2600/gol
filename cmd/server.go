@@ -42,7 +42,7 @@ func (r *Server) RunHttp(ctx context.Context) error {
 	runtime.HTTPError = r.handler.CustomHTTPError
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 
-	if err := pb.RegisterGolHandlerFromEndpoint(ctx, mux, "localhost:"+r.port, opts); err != nil {
+	if err := pb.RegisterGolHandlerFromEndpoint(ctx, mux, "localhost:"+r.grpc, opts); err != nil {
 		return err
 	}
 	r.logger.Info().Msg("Start http server port: " + r.port)
@@ -53,7 +53,7 @@ func (r *Server) RunHttp(ctx context.Context) error {
 	return s.ListenAndServe()
 }
 
-func (r *Server) RunGRPC() {
+func (r *Server) RunGRPC() error {
 	lis, err := net.Listen("tcp", ":"+r.grpc)
 	if err != nil {
 		r.logger.Fatal().Msgf("failed to listen: %v", err)
@@ -78,5 +78,7 @@ func (r *Server) RunGRPC() {
 	pb.RegisterGolServer(s, r.handler)
 	if err := s.Serve(lis); err != nil {
 		r.logger.Fatal().Msgf("failed to serve: %v", err)
+		return err
 	}
+	return nil
 }
