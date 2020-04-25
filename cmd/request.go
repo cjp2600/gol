@@ -8,8 +8,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yalp/jsonpath"
 	"gopkg.in/workanator/go-floc.v2"
+	"regexp"
 	"strings"
 )
+
+const VariablePrefix = "$"
 
 type RequestTranslator struct {
 	Job    *pb.Job
@@ -25,13 +28,15 @@ func NewRequestTranslator(job *pb.Job, logger zerolog.Logger) *RequestTranslator
 func (r *RequestTranslator) setType(ctx floc.Context, n, t string, val interface{}) {
 	switch strings.ToLower(t) {
 	case "string":
-		ctx.AddValue("$"+n, val.(string))
+		ctx.AddValue(VariablePrefix+n, val.(string))
 	case "int":
-		ctx.AddValue("$"+n, val.(int))
+		ctx.AddValue(VariablePrefix+n, val.(int))
 	case "int32":
-		ctx.AddValue("$"+n, val.(int32))
+		ctx.AddValue(VariablePrefix+n, val.(int32))
 	case "int64":
-		ctx.AddValue("$"+n, val.(int64))
+		ctx.AddValue(VariablePrefix+n, val.(int64))
+	case "float64":
+		ctx.AddValue(VariablePrefix+n, val.(float64))
 	}
 }
 
@@ -70,35 +75,64 @@ func (r *RequestTranslator) FlocExecute() func(ctx floc.Context, ctrl floc.Contr
 	}
 }
 
+func (r *RequestTranslator) FindVariables(ctx floc.Context, s string) string {
+	reg, _ := regexp.Compile(`[$][a-zA-Z+]*`)
+	v := reg.FindAllString(s, -1)
+	if len(v) > 0 {
+		for _, item := range v {
+			if v, ok := ctx.Value(item).(string); ok {
+				s = strings.Replace(s, item, v, -1)
+			}
+		}
+	}
+	return s
+}
+
 func (r *RequestTranslator) Execute(ctx floc.Context) (*resty.Response, error) {
 	var err error
 	var response *resty.Response
 	req := r.client.R()
 	req.EnableTrace()
 
+	url := r.Job.GetUrl()
+	if strings.Contains(url, VariablePrefix) {
+		url = r.FindVariables(ctx, url)
+	}
 	if r.Job.Body != nil {
-		ub, err := r.Job.GetUnmarshalBody()
+		body, err := r.Job.GetUnmarshalBody()
 		if err != nil {
 			return nil, err
 		}
-		req.SetBody(ub)
+		for _, value := range body {
+			if v, ok := value.(string); ok {
+				if strings.Contains(v, VariablePrefix) {
+					v = r.FindVariables(ctx, v)
+				}
+			}
+		}
+		req.SetBody(body)
 	}
 	if r.Job.Header != nil {
-		ub, err := r.Job.GetUnmarshalHeader()
+		headers, err := r.Job.GetUnmarshalHeader()
 		if err != nil {
 			return nil, err
 		}
-		req.SetHeaders(ub)
+		for key, value := range headers {
+			if strings.Contains(value, VariablePrefix) {
+				headers[key] = r.FindVariables(ctx, value)
+			}
+		}
+		req.SetHeaders(headers)
 	}
 	switch r.Job.Method {
 	case pb.Methods_get:
-		response, err = req.Get(r.Job.GetUrl())
+		response, err = req.Get(url)
 	case pb.Methods_post:
-		response, err = req.Post(r.Job.GetUrl())
+		response, err = req.Post(url)
 	case pb.Methods_put:
-		response, err = req.Put(r.Job.GetUrl())
+		response, err = req.Put(url)
 	case pb.Methods_patch:
-		response, err = req.Delete(r.Job.GetUrl())
+		response, err = req.Delete(url)
 	}
 	if err != nil {
 		return nil, err
